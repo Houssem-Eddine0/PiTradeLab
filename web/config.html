@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PiTradeLab — Configuration</title>
+<script src="/i18n.js"></script>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --border:#21262d; --text:#e6edf3; --muted:#8b949e;
+          --green:#16c784; --red:#ea3943; --accent:#2f81f7; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         padding:20px; max-width:920px; margin:0 auto; }
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  h1 { font-size:22px; } a { color:var(--accent); text-decoration:none; font-size:14px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:16px; }
+  .panel h2 { font-size:15px; margin-bottom:14px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 6px; }
+  input,select { width:100%; background:#0d1117; border:1px solid var(--border); border-radius:9px;
+                 padding:10px 12px; color:var(--text); font-size:14px; font-family:inherit; }
+  input:focus,select:focus { outline:none; border-color:var(--accent); }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:640px){ .row{ grid-template-columns:1fr; } }
+  button { font-family:inherit; cursor:pointer; border:1px solid var(--border); border-radius:9px;
+           padding:11px 18px; font-size:14px; font-weight:600; color:var(--text); background:#21262d; }
+  button:hover { filter:brightness(1.2); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .lang-btns,.assets-grid { display:flex; flex-wrap:wrap; gap:8px; }
+  .lang-btns button.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .asset-group { margin-bottom:12px; }
+  .asset-group .gname { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin:8px 0 6px; }
+  .chip { border:1px solid var(--border); border-radius:20px; padding:7px 14px; font-size:13px; cursor:pointer; user-select:none; background:#0d1117; }
+  .chip.on { background:rgba(47,129,247,.18); border-color:var(--accent); color:#fff; }
+  .chip.disabled { opacity:.4; cursor:not-allowed; }
+  .count { font-size:13px; color:var(--muted); margin:6px 0 4px; }
+  .note { font-size:12px; color:var(--muted); margin-top:6px; }
+  .warn { font-size:12.5px; color:#f0b429; background:rgba(240,180,41,.08); border:1px solid rgba(240,180,41,.25);
+          border-radius:8px; padding:9px 12px; margin-top:10px; }
+  .ok { color:var(--green); } .ko { color:var(--red); }
+  .savebar { display:flex; align-items:center; gap:14px; position:sticky; bottom:0; background:var(--bg);
+             padding:14px 0; border-top:1px solid var(--border); }
+  #feedback { font-size:14px; }
+  .testbox { margin-top:10px; font-size:13px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1 data-i18n="config_title">⚙️ Configuration</h1>
+    <a href="/" data-i18n="nav_dashboard">← Dashboard</a>
+  </header>
+
+  <div class="panel">
+    <h2 data-i18n="sec_language">🌍 Langue</h2>
+    <div class="lang-btns" id="langBtns"></div>
+  </div>
+
+  <div class="panel">
+    <h2 data-i18n="sec_assets">📊 Actifs à trader</h2>
+    <div class="note" data-i18n="assets_help">Choisis jusqu'à 5 actifs.</div>
+    <div class="count"><span id="selCount">0</span>/5 <span data-i18n="selected">sélectionné(s)</span></div>
+    <div id="assets"></div>
+  </div>
+
+  <div class="panel">
+    <h2 data-i18n="sec_strategy">🧠 Stratégie de trading</h2>
+    <label data-i18n="strategy_label">Stratégie</label>
+    <select id="strategy"></select>
+    <div class="row">
+      <div><label data-i18n="buy_threshold">Seuil d'achat</label><input type="number" step="0.05" id="buy_threshold"></div>
+      <div><label data-i18n="sell_threshold">Seuil de vente</label><input type="number" step="0.05" id="sell_threshold"></div>
+    </div>
+    <div class="row">
+      <div><label data-i18n="ai_weight">Poids de l'IA</label><input type="number" step="0.1" min="0" max="1" id="ai_weight"></div>
+      <div><label data-i18n="ai_interval">Fréquence IA (s)</label><input type="number" step="60" min="60" id="ai_interval"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 data-i18n="sec_ai">🤖 Clé IA (Gemini)</h2>
+    <label data-i18n="ai_key_label">Clé API Gemini</label>
+    <input type="password" id="gemini_api_key" placeholder="AIza… / AQ.…">
+    <div class="note" id="aiKeySet"></div>
+    <div class="note" data-i18n="ai_key_help">Obtenir une clé : aistudio.google.com/apikey</div>
+    <label data-i18n="ai_model">Modèle</label>
+    <input type="text" id="gemini_model" placeholder="gemini-2.5-flash">
+  </div>
+
+  <div class="panel">
+    <h2 data-i18n="sec_exchange">🏦 Compte d'échange (Binance ou autre)</h2>
+    <label data-i18n="exchange_label">Exchange</label>
+    <input type="text" id="exchange" placeholder="binance">
+    <div class="row">
+      <div><label data-i18n="api_key">Clé API</label><input type="password" id="exchange_api_key"></div>
+      <div><label data-i18n="secret">Secret</label><input type="password" id="exchange_secret"></div>
+    </div>
+    <div class="note" id="exKeysSet"></div>
+    <div style="margin-top:12px"><button onclick="testExchange()" data-i18n="test_connection">🔌 Tester la connexion</button></div>
+    <div class="testbox" id="exTest"></div>
+    <label data-i18n="trading_mode">Mode de trading</label>
+    <select id="trading_mode">
+      <option value="paper" data-i18n-opt="mode_paper">Paper (virtuel)</option>
+      <option value="live" data-i18n-opt="mode_live">Live (argent réel)</option>
+    </select>
+    <div class="warn" data-i18n="live_warning">⚠️ Le mode LIVE engage de vrais fonds.</div>
+  </div>
+
+  <div class="savebar">
+    <button class="primary" onclick="saveAll()" data-i18n="save">💾 Enregistrer</button>
+    <span id="feedback"></span>
+  </div>
+
+<script>
+let catalog = [], selected = [], settingsData = {};
+const $ = id => document.getElementById(id);
+
+async function load() {
+  const [c, s] = await Promise.all([fetch("/api/catalog").then(r=>r.json()), fetch("/api/settings").then(r=>r.json())]);
+  catalog = c.catalog; settingsData = s;
+  setLang(s.language || LANG);
+  selected = (s.instruments || []).map(i => i.id);
+
+  // langue
+  renderLangs(s.languages || ["fr","en","es"]);
+  // stratégies
+  $("strategy").innerHTML = (s.strategies||[]).map(st => `<option value="${st.id}">${st.name}</option>`).join("");
+  $("strategy").value = s.strategy;
+  $("buy_threshold").value = s.buy_threshold;
+  $("sell_threshold").value = s.sell_threshold;
+  $("ai_weight").value = s.ai_weight;
+  $("ai_interval").value = s.ai_interval;
+  $("gemini_model").value = s.gemini_model;
+  $("exchange").value = s.exchange;
+  $("trading_mode").value = s.trading_mode;
+  $("aiKeySet").innerHTML = s.gemini_key_set ? '<span class="ok">'+t("ai_key_set")+'</span>' : "";
+  $("exKeysSet").innerHTML = s.exchange_keys_set ? '<span class="ok">'+t("keys_set")+'</span>' : "";
+
+  renderAssets();
+  applyI18n(); applyOpts();
+}
+
+function renderLangs(langs) {
+  const names = {fr:"Français", en:"English", es:"Español"};
+  $("langBtns").innerHTML = langs.map(l =>
+    `<button class="${l===LANG?'active':''}" onclick="chooseLang('${l}')">${names[l]||l}</button>`).join("");
+}
+function chooseLang(l) { setLang(l); renderLangs(settingsData.languages||["fr","en","es"]); applyI18n(); applyOpts(); renderAssets(); $("aiKeySet").innerHTML = settingsData.gemini_key_set ? '<span class="ok">'+t("ai_key_set")+'</span>':''; $("exKeysSet").innerHTML = settingsData.exchange_keys_set ? '<span class="ok">'+t("keys_set")+'</span>':''; }
+
+function applyOpts() {
+  document.querySelectorAll("[data-i18n-opt]").forEach(o => { o.textContent = t(o.getAttribute("data-i18n-opt")); });
+}
+
+function renderAssets() {
+  const groups = {};
+  catalog.forEach(i => { (groups[i.asset_class] = groups[i.asset_class] || []).push(i); });
+  const labels = {crypto:"Crypto", commodity:"Matières premières", stock:"Actions", forex:"Devises", index:"Indices"};
+  $("assets").innerHTML = Object.keys(groups).map(g => `
+    <div class="asset-group"><div class="gname">${labels[g]||g}</div><div class="assets-grid">
+    ${groups[g].map(i => {
+      const on = selected.includes(i.id);
+      const dis = !on && selected.length >= 5;
+      return `<div class="chip ${on?'on':''} ${dis?'disabled':''}" onclick="toggle('${i.id}')">${i.name}</div>`;
+    }).join("")}</div></div>`).join("");
+  $("selCount").textContent = selected.length;
+}
+function toggle(id) {
+  if (selected.includes(id)) selected = selected.filter(x => x !== id);
+  else { if (selected.length >= 5) return; selected.push(id); }
+  renderAssets();
+}
+
+async function testExchange() {
+  $("exTest").textContent = "…";
+  const body = { exchange: $("exchange").value, api_key: $("exchange_api_key").value, secret: $("exchange_secret").value };
+  try {
+    const r = await fetch("/api/exchange/test", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+    const d = await r.json();
+    if (d.ok) $("exTest").innerHTML = '<span class="ok">✅ '+(d.message||"OK")+'</span><br>'+Object.entries(d.balances||{}).map(([k,v])=>k+": "+v).join(" · ");
+    else $("exTest").innerHTML = '<span class="ko">❌ '+(d.error||"échec")+'</span>';
+  } catch(e) { $("exTest").innerHTML = '<span class="ko">❌ erreur réseau</span>'; }
+}
+
+async function saveAll() {
+  const instruments = selected.map(id => catalog.find(c => c.id === id)).filter(Boolean);
+  const payload = {
+    language: LANG, strategy: $("strategy").value,
+    buy_threshold: parseFloat($("buy_threshold").value), sell_threshold: parseFloat($("sell_threshold").value),
+    ai_weight: parseFloat($("ai_weight").value), ai_interval: parseInt($("ai_interval").value, 10),
+    gemini_model: $("gemini_model").value,
+    exchange: $("exchange").value, trading_mode: $("trading_mode").value, instruments,
+  };
+  // secrets uniquement si saisis
+  const gk = $("gemini_api_key").value.trim(); if (gk) payload.gemini_api_key = gk;
+  const ek = $("exchange_api_key").value.trim(); if (ek) payload.exchange_api_key = ek;
+  const es = $("exchange_secret").value.trim(); if (es) payload.exchange_secret = es;
+
+  try {
+    await fetch("/api/settings", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+    $("feedback").innerHTML = '<span class="ok">'+t("saved")+'</span>';
+    setTimeout(() => $("feedback").textContent = "", 2500);
+  } catch(e) { $("feedback").innerHTML = '<span class="ko">❌</span>'; }
+}
+
+load();
+</script>
+</body>
+</html>

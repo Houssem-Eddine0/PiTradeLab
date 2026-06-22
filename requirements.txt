@@ -1,0 +1,11 @@
+# Bornes par version majeure : pip choisit une version compatible au build,
+# tout en évitant qu'une montée de version majeure casse silencieusement l'image.
+ccxt>=4,<5
+yfinance>=0.2.40,<0.3
+pandas>=2.2,<3
+numpy>=1.26,<3
+ta>=0.11,<0.12
+fastapi>=0.110,<1
+uvicorn[standard]>=0.29,<1
+requests>=2.31,<3
+python-dotenv>=1,<2

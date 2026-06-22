@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PiTradeLab — Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="/i18n.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #21262d;
+    --text: #e6edf3; --muted: #8b949e;
+    --green: #16c784; --red: #ea3943; --grey: #768390; --accent: #2f81f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 20px; max-width: 1280px; margin: 0 auto;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand h1 { font-size: 22px; letter-spacing: .5px; }
+  .brand .sub { color: var(--muted); font-size: 13px; }
+  .live { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); animation: pulse 1.8s infinite; }
+  .dot.paused { background: var(--grey); animation: none; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(22,199,132,.6);} 70% { box-shadow: 0 0 0 8px rgba(22,199,132,0);} 100% { box-shadow: 0 0 0 0 rgba(22,199,132,0);} }
+
+  /* Onglets d'actifs */
+  .tabs { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+  .tab { background: var(--panel); border: 1px solid var(--border); border-radius: 11px; padding: 11px 16px; cursor: pointer; min-width: 130px; transition: .15s; }
+  .tab:hover { border-color: var(--accent); }
+  .tab.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .tab .t-name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 7px; }
+  .tab .t-class { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  .tab .t-foot { display: flex; justify-content: space-between; align-items: baseline; margin-top: 7px; }
+  .tab .t-price { font-size: 13px; } .tab .t-pnl { font-size: 12px; font-weight: 600; }
+  .tdot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+
+  .grid { display: grid; gap: 14px; }
+  .cards { grid-template-columns: repeat(4, 1fr); margin-bottom: 14px; }
+  .ind   { grid-template-columns: repeat(4, 1fr); margin-bottom: 14px; }
+  @media (max-width: 820px) { .cards, .ind { grid-template-columns: repeat(2, 1fr); } }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; }
+  .card .value { font-size: 26px; font-weight: 600; }
+  .card .value.small { font-size: 18px; }
+  .sub2 { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  .badge { display: inline-block; padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 20px; letter-spacing: 1px; }
+  .BUY  { background: rgba(22,199,132,.15); color: var(--green); }
+  .SELL { background: rgba(234,57,67,.15);  color: var(--red); }
+  .HOLD { background: rgba(118,131,144,.15); color: var(--grey); }
+
+  .scorebar { height: 8px; background: #30363d; border-radius: 4px; margin-top: 10px; position: relative; overflow: hidden; }
+  .scorebar .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: #555; }
+  .scorebar .fill { position: absolute; top: 0; bottom: 0; }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
+  .panel h2 { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 12px; font-weight: 600; }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 820px) { .twocol { grid-template-columns: 1fr; } }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 7px 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  .mono { font-variant-numeric: tabular-nums; }
+  .pill { padding: 2px 8px; border-radius: 6px; font-weight: 600; font-size: 12px; }
+  .empty { color: var(--muted); padding: 14px 8px; font-size: 13px; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 18px; }
+
+  .ai-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .ai-score { font-size: 20px; font-weight: 700; }
+  .ai-reason { margin-top: 10px; font-size: 14px; line-height: 1.5; }
+  .headlines { margin-top: 12px; list-style: none; }
+  .headlines li { font-size: 12.5px; color: var(--muted); padding: 4px 0 4px 16px; position: relative; }
+  .headlines li::before { content: "▪"; position: absolute; left: 0; color: var(--accent); }
+
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+  button { font-family: inherit; cursor: pointer; border: 1px solid var(--border); border-radius: 9px;
+           padding: 10px 18px; font-size: 14px; font-weight: 600; color: var(--text); background: #21262d; transition: .15s; }
+  button:hover { filter: brightness(1.2); }
+  button.buy { background: rgba(22,199,132,.15); color: var(--green); border-color: rgba(22,199,132,.4); }
+  button.sell { background: rgba(234,57,67,.15); color: var(--red); border-color: rgba(234,57,67,.4); }
+  button.pause { background: rgba(47,129,247,.12); color: var(--accent); border-color: rgba(47,129,247,.4); }
+
+  .chat-log { height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px; margin-bottom: 12px; }
+  .msg { max-width: 85%; padding: 9px 13px; border-radius: 12px; font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 3px; }
+  .msg.bot { align-self: flex-start; background: #21262d; border: 1px solid var(--border); border-bottom-left-radius: 3px; }
+  .msg.sys { align-self: center; color: var(--muted); font-size: 12px; font-style: italic; }
+  .chat-in { display: flex; gap: 8px; }
+  .chat-in input { flex: 1; background: #0d1117; border: 1px solid var(--border); border-radius: 9px; padding: 11px 13px; color: var(--text); font-size: 14px; font-family: inherit; }
+  .chat-in input:focus { outline: none; border-color: var(--accent); }
+
+  /* Activité en direct */
+  .rec { width: 9px; height: 9px; border-radius: 50%; background: var(--red); display: inline-block; margin-right: 7px; animation: pulse-red 1.4s infinite; vertical-align: middle; }
+  @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(234,57,67,.6);} 70% { box-shadow: 0 0 0 7px rgba(234,57,67,0);} 100% { box-shadow: 0 0 0 0 rgba(234,57,67,0);} }
+  @keyframes flash { from { background: rgba(47,129,247,.40); } to { background: transparent; } }
+  tr.flash td { animation: flash 2.2s ease-out; }
+  .h-note { text-transform: none; letter-spacing: 0; color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 8px; }
+
+  /* Liens entête + P&L global */
+  .topnav { display: flex; align-items: center; gap: 14px; }
+  .topnav a { color: var(--accent); text-decoration: none; font-size: 14px; font-weight: 600; }
+  .gpnl { display: flex; align-items: center; gap: 14px; border-radius: 12px; padding: 12px 20px; margin-bottom: 16px;
+          border: 1px solid var(--border); font-weight: 700; }
+  .gpnl.up { background: rgba(22,199,132,.12); border-color: rgba(22,199,132,.4); }
+  .gpnl.down { background: rgba(234,57,67,.12); border-color: rgba(234,57,67,.4); }
+  .gpnl .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; font-weight: 600; }
+  .gpnl .big { font-size: 26px; }
+  .gpnl .tag { font-size: 12px; padding: 3px 10px; border-radius: 6px; font-weight: 700; letter-spacing: 1px; }
+  .gpnl.up .tag { background: rgba(22,199,132,.2); color: var(--green); }
+  .gpnl.down .tag { background: rgba(234,57,67,.2); color: var(--red); }
+
+  /* Carte portefeuille colorée selon gain/perte */
+  .card.pf-up { border-color: rgba(22,199,132,.45); background: linear-gradient(180deg, rgba(22,199,132,.10), var(--panel)); }
+  .card.pf-down { border-color: rgba(234,57,67,.45); background: linear-gradient(180deg, rgba(234,57,67,.10), var(--panel)); }
+  .pnl-big { font-size: 20px; font-weight: 700; margin-top: 4px; }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand"><h1>⚡ PiTradeLab</h1><span class="sub" id="market">multi-actifs</span></div>
+    <div class="topnav">
+      <div class="live"><span class="dot" id="livedot"></span><span id="updated">connexion…</span></div>
+      <a href="/config" data-i18n="nav_config">⚙️ Configuration</a>
+    </div>
+  </header>
+
+  <!-- P&L global : gain/perte total bien visible -->
+  <div class="gpnl down" id="gpnl">
+    <span class="lbl" data-i18n="global_pnl">Profit / Perte global</span>
+    <span class="big mono" id="gpnl-val">—</span>
+    <span class="tag" id="gpnl-tag">—</span>
+  </div>
+
+  <!-- Onglets d'actifs (vue d'ensemble cliquable) -->
+  <div class="tabs" id="tabs"></div>
+
+  <!-- Flux d'activité EN DIRECT, tous actifs confondus -->
+  <div class="panel">
+    <h2><span class="rec"></span><span data-i18n="live_activity">Activité de trading en direct — tous les actifs</span>
+        <span class="h-note" data-i18n="live_note">🤖 le bot achète &amp; vend seul · 👤 = ordre manuel</span></h2>
+    <table>
+      <thead><tr><th data-i18n="col_time">Heure</th><th data-i18n="col_asset">Actif</th><th data-i18n="col_action">Action</th><th data-i18n="col_price">Prix</th><th data-i18n="col_by">Par</th></tr></thead>
+      <tbody id="activity"><tr><td colspan="5" class="empty" data-i18n="waiting_first_trade">En attente du premier trade du bot…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="grid cards">
+    <div class="card">
+      <div class="label" id="price-label">Prix actuel</div>
+      <div class="value mono" id="price">—</div>
+      <div class="sub2" id="candles">—</div>
+    </div>
+    <div class="card">
+      <div class="label" data-i18n="signal">Signal</div>
+      <div class="value"><span class="badge HOLD" id="signal">—</span></div>
+      <div class="sub2" id="trend">—</div>
+    </div>
+    <div class="card">
+      <div class="label" data-i18n="final_score">Score final</div>
+      <div class="value mono" id="score">—</div>
+      <div class="scorebar"><span class="mid"></span><span class="fill" id="scorefill"></span></div>
+    </div>
+    <div class="card" id="pfcard">
+      <div class="label" data-i18n="portfolio">Portefeuille</div>
+      <div class="value mono" id="total">—</div>
+      <div class="pnl-big mono" id="pnl">—</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 data-i18n="ai_brain">🧠 Cerveau IA (Gemini)</h2>
+    <div class="ai-head">
+      <span class="badge HOLD" id="ai-sentiment">—</span>
+      <span class="ai-score mono" id="ai-score">—</span>
+      <span class="sub2" id="ai-time"></span>
+    </div>
+    <div class="ai-reason" id="ai-reason" data-i18n="ai_waiting">En attente de la première analyse…</div>
+    <ul class="headlines" id="headlines"></ul>
+  </div>
+
+  <div class="twocol">
+    <div class="panel">
+      <h2><span data-i18n="manual_orders">🎮 Ordres manuels</span> — <span id="ctrl-name">—</span></h2>
+      <div class="controls">
+        <button class="buy"  onclick="cmd('buy')" data-i18n="buy">🟢 Acheter</button>
+        <button class="sell" onclick="cmd('sell')" data-i18n="sell">🔴 Vendre</button>
+        <button class="pause" id="pausebtn" onclick="togglePause()" data-i18n="pause">⏸️ Pause</button>
+        <button onclick="cmd('status')" data-i18n="status_btn">📊 État</button>
+      </div>
+      <div class="sub2" id="cmd-feedback" style="margin-top:14px;min-height:18px"></div>
+      <div style="margin-top:14px">
+        <div class="sub2"><span data-i18n="liquidity">Liquidités</span> : <span class="mono" id="balance">—</span></div>
+        <div class="sub2"><span data-i18n="position">Position</span> : <span class="mono" id="position">—</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2><span data-i18n="assistant">💬 Assistant</span> — <span id="chat-name">—</span></h2>
+      <div class="chat-log" id="chatlog">
+        <div class="msg sys" data-i18n="chat_hint">Pose une question ou tape /buy, /sell, /pause.</div>
+      </div>
+      <div class="chat-in">
+        <input id="chatinput" data-i18n-ph="ask_ph" placeholder="Pose ta question à l'IA…" onkeydown="if(event.key==='Enter')sendChat()">
+        <button onclick="sendChat()" data-i18n="send">Envoyer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid ind">
+    <div class="card"><div class="label" data-i18n="ma_short">MA courte</div><div class="value small mono" id="ma_short">—</div></div>
+    <div class="card"><div class="label" data-i18n="ma_long">MA longue</div><div class="value small mono" id="ma_long">—</div></div>
+    <div class="card"><div class="label" data-i18n="rsi">RSI (14)</div><div class="value small mono" id="rsi">—</div></div>
+    <div class="card"><div class="label" data-i18n="vol_ratio">Volume ratio</div><div class="value small mono" id="vol">—</div></div>
+  </div>
+
+  <div class="panel">
+    <h2><span data-i18n="price_evolution">Évolution du prix</span> — <span id="chart-name">—</span></h2>
+    <canvas id="chart" height="90"></canvas>
+  </div>
+
+  <div class="twocol">
+    <div class="panel">
+      <h2 data-i18n="last_trades">Derniers trades</h2>
+      <table><thead><tr><th data-i18n="col_time">Heure</th><th data-i18n="col_action">Action</th><th data-i18n="col_price">Prix</th><th data-i18n="col_solde">Solde</th></tr></thead>
+        <tbody id="trades"><tr><td colspan="4" class="empty" data-i18n="no_trade">Aucun trade…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2 data-i18n="last_signals">Derniers signaux</h2>
+      <table><thead><tr><th data-i18n="col_time">Heure</th><th data-i18n="col_signal">Signal</th><th data-i18n="col_score">Score</th><th data-i18n="col_price">Prix</th></tr></thead>
+        <tbody id="signals"><tr><td colspan="4" class="empty" data-i18n="waiting">En attente…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>PiTradeLab — paper trading multi-actifs + IA · 3 s</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+let current = null;   // instrument sélectionné
+let paused = false;
+
+// Décimales adaptatives selon le prix (forex ~1.08 vs BTC ~65000)
+function fmtPrice(n) {
+  if (n == null) return "—";
+  const d = Math.abs(n) >= 100 ? 2 : Math.abs(n) >= 1 ? 4 : 5;
+  return Number(n).toLocaleString("fr-FR", {minimumFractionDigits: d, maximumFractionDigits: d});
+}
+const fmtNum = (n, d = 2) => n == null ? "—" : Number(n).toLocaleString("fr-FR", {minimumFractionDigits: d, maximumFractionDigits: d});
+const fmtTime = ts => { if (ts == null) return "—"; const ms = ts > 1e12 ? ts : ts * 1000; return new Date(ms).toLocaleTimeString("fr-FR"); };
+const col = s => s === "BUY" ? "var(--green)" : s === "SELL" ? "var(--red)" : "var(--grey)";
+
+let chart;
+function initChart() {
+  chart = new Chart($("chart"), {
+    type: "line",
+    data: { labels: [], datasets: [{ data: [], borderColor: "#2f81f7", borderWidth: 2, pointRadius: 0, tension: .25, fill: true, backgroundColor: "rgba(47,129,247,.08)" }]},
+    options: { responsive: true, maintainAspectRatio: true, animation: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { ticks: { color: "#8b949e", maxTicksLimit: 8 }, grid: { color: "#21262d" } },
+                y: { ticks: { color: "#8b949e" }, grid: { color: "#21262d" } } } },
+  });
+}
+function setSignal(el, sig) { el.className = "badge " + (sig || "HOLD"); el.textContent = sig || "—"; }
+
+// ---- Onglets / vue d'ensemble ----
+async function loadTabs() {
+  try {
+    const r = await fetch("/api/instruments");
+    const d = await r.json();
+    if (!current && d.instruments.length) current = d.instruments[0].id;
+    // Langue (depuis les settings serveur)
+    const g = d.global || {};
+    if (g.language && g.language !== LANG) { setLang(g.language); applyI18n(); }
+    // P&L global bien visible
+    const gp = g.pnl || 0, prof = g.profit || 0;
+    const gel = $("gpnl");
+    gel.className = "gpnl " + (prof >= 0 ? "up" : "down");
+    $("gpnl-val").textContent = (prof >= 0 ? "+" : "") + fmtNum(prof) + " (" + (gp >= 0 ? "+" : "") + fmtNum(gp) + " %)";
+    $("gpnl-tag").textContent = prof >= 0 ? t("profit") : t("loss");
+    const tabs = $("tabs");
+    tabs.innerHTML = d.overview.map(o => {
+      const pnlCls = (o.pnl || 0) >= 0 ? "pos" : "neg";
+      const c = col(o.signal);
+      return `<div class="tab ${o.id === current ? "active" : ""}" onclick="selectInst('${o.id}')">
+        <div class="t-name"><span class="tdot" style="background:${c}"></span>${o.name}</div>
+        <div class="t-class">${o.asset_class}</div>
+        <div class="t-foot"><span class="t-price mono">${fmtPrice(o.price)}</span>
+          <span class="t-pnl ${pnlCls}">${(o.pnl>=0?"+":"")}${fmtNum(o.pnl)}%</span></div>
+      </div>`;
+    }).join("");
+  } catch (e) {}
+}
+function selectInst(id) { current = id; loadTabs(); refresh(); }
+
+// ---- Flux d'activité en direct (tous actifs) ----
+let lastActivityKey = null;
+async function refreshActivity() {
+  try {
+    const r = await fetch("/api/trades?limit=30");
+    const d = await r.json();
+    const tb = $("activity");
+    if (!d.trades.length) { tb.innerHTML = '<tr><td colspan="5" class="empty">En attente du premier trade du bot…</td></tr>'; return; }
+    const top = d.trades[0];
+    const topKey = top.instrument + "-" + top.timestamp + "-" + top.action;
+    const isNew = lastActivityKey && topKey !== lastActivityKey;
+    tb.innerHTML = d.trades.map((t, i) => {
+      const c = t.action === "BUY" ? "var(--green)" : "var(--red)";
+      const src = t.source === "manuel" ? "👤 manuel" : "🤖 auto";
+      const flash = (i === 0 && isNew) ? ' class="flash"' : "";
+      return `<tr${flash}><td>${fmtTime(t.timestamp)}</td>
+        <td>${t.name} <span class="t-class">${t.asset_class}</span></td>
+        <td><span class="pill" style="background:rgba(128,128,128,.12);color:${c}">${t.action}</span></td>
+        <td class="mono">${fmtPrice(t.price)} ${t.quote || ""}</td>
+        <td class="sub2" style="margin:0">${src}</td></tr>`;
+    }).join("");
+    lastActivityKey = topKey;
+  } catch (e) {}
+}
+
+// ---- Commandes ----
+async function cmd(action) {
+  try {
+    const r = await fetch("/api/command", { method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({action, instrument: current}) });
+    const d = await r.json();
+    $("cmd-feedback").textContent = d.reply;
+    refresh(); loadTabs();
+  } catch (e) { $("cmd-feedback").textContent = "Erreur réseau."; }
+}
+function togglePause() { cmd(paused ? "resume" : "pause"); }
+
+// ---- Chat ----
+function addMsg(text, cls) {
+  const log = $("chatlog");
+  const div = document.createElement("div"); div.className = "msg " + cls; div.textContent = text;
+  log.appendChild(div); log.scrollTop = log.scrollHeight;
+}
+async function sendChat() {
+  const input = $("chatinput"); const msg = input.value.trim(); if (!msg) return;
+  addMsg(msg, "user"); input.value = ""; addMsg("…", "bot");
+  const pending = $("chatlog").lastChild;
+  try {
+    const r = await fetch("/api/chat", { method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({message: msg, instrument: current}) });
+    const d = await r.json(); pending.textContent = d.reply;
+  } catch (e) { pending.textContent = "⚠️ Erreur réseau."; }
+  $("chatlog").scrollTop = $("chatlog").scrollHeight;
+}
+
+// ---- Rafraîchissement du détail ----
+async function refresh() {
+  if (!current) return;
+  try {
+    const r = await fetch("/api/state?instrument=" + encodeURIComponent(current));
+    const s = await r.json();
+    const inst = s.instrument || {};
+
+    $("market").textContent = `${inst.name} · ${inst.symbol} · ${inst.timeframe} · ${inst.provider}`;
+    $("ctrl-name").textContent = inst.name; $("chat-name").textContent = inst.name; $("chart-name").textContent = inst.name;
+    $("price-label").textContent = t("price_now") + (inst.quote ? " (" + inst.quote + ")" : "");
+    if (s.language && s.language !== LANG) { setLang(s.language); applyI18n(); }
+    paused = s.paused;
+    $("livedot").className = "dot" + (paused ? " paused" : "");
+    $("updated").textContent = new Date().toLocaleTimeString("fr-FR");
+    $("pausebtn").textContent = paused ? t("resume") : t("pause");
+
+    $("price").textContent = fmtPrice(s.price);
+    $("candles").textContent = (s.candles || 0) + " bougies";
+
+    setSignal($("signal"), s.signal);
+    const d = s.details || {};
+    $("trend").textContent = d.trend ? ("Tendance : " + d.trend) : "—";
+
+    const score = s.score == null ? 0 : s.score;
+    $("score").textContent = (s.score == null) ? "—" : (score >= 0 ? "+" : "") + score.toFixed(3);
+    const fill = $("scorefill"); const pct = Math.min(Math.abs(score) * 50, 50); fill.style.width = pct + "%";
+    if (score >= 0) { fill.style.left = "50%"; fill.style.background = "var(--green)"; }
+    else { fill.style.left = (50 - pct) + "%"; fill.style.background = "var(--red)"; }
+
+    const p = s.portfolio || {};
+    $("total").textContent = fmtNum(p.total);
+    const pnl = p.pnl || 0, profit = p.profit || 0;
+    const pnlEl = $("pnl");
+    pnlEl.textContent = (profit >= 0 ? "▲ +" : "▼ ") + fmtNum(profit) + "  (" + (pnl >= 0 ? "+" : "") + fmtNum(pnl) + " %)";
+    pnlEl.className = "pnl-big mono " + (pnl >= 0 ? "pos" : "neg");
+    $("pfcard").className = "card " + (pnl >= 0 ? "pf-up" : "pf-down");
+    $("balance").textContent = fmtNum(p.balance) + " " + (inst.quote || "");
+    $("position").textContent = fmtNum(p.position, 6) + " " + inst.id;
+
+    const ai = s.ai || {}; const sentEl = $("ai-sentiment");
+    if (!s.ai_enabled) { sentEl.className = "badge HOLD"; sentEl.textContent = "désactivée"; $("ai-reason").textContent = "IA non configurée."; $("headlines").innerHTML = ""; }
+    else if (ai.sentiment) {
+      const map = {bullish: "BUY", bearish: "SELL", neutral: "HOLD"};
+      sentEl.className = "badge " + (map[ai.sentiment] || "HOLD"); sentEl.textContent = ai.sentiment;
+      $("ai-score").textContent = ai.score == null ? "" : "score " + (ai.score >= 0 ? "+" : "") + Number(ai.score).toFixed(2);
+      $("ai-time").textContent = ai.ts ? "· " + fmtTime(ai.ts) : "";
+      $("ai-reason").textContent = ai.reasoning || "";
+      $("headlines").innerHTML = (ai.headlines || []).map(h => `<li>${h}</li>`).join("");
+    } else { sentEl.className = "badge HOLD"; sentEl.textContent = "…"; $("ai-reason").textContent = "Analyse IA en attente…"; }
+
+    $("ma_short").textContent = fmtPrice(d.ma_short);
+    $("ma_long").textContent = fmtPrice(d.ma_long);
+    $("rsi").textContent = d.rsi == null ? "—" : fmtNum(d.rsi);
+    $("vol").textContent = d.volume_ratio == null ? "—" : fmtNum(d.volume_ratio) + "×";
+
+    chart.data.labels = s.chart.map(pt => fmtTime(pt.t));
+    chart.data.datasets[0].data = s.chart.map(pt => pt.c);
+    chart.update();
+
+    const tb = $("trades");
+    if (!s.trades.length) tb.innerHTML = '<tr><td colspan="4" class="empty">Aucun trade…</td></tr>';
+    else tb.innerHTML = s.trades.map(t => `<tr><td>${fmtTime(t.timestamp)}</td>
+        <td><span class="pill" style="background:rgba(128,128,128,.12);color:${col(t.action)}">${t.action}</span></td>
+        <td class="mono">${fmtPrice(t.price)}</td><td class="mono">${fmtNum(t.balance)}</td></tr>`).join("");
+
+    const sg = $("signals");
+    if (!s.signals.length) sg.innerHTML = '<tr><td colspan="4" class="empty">En attente…</td></tr>';
+    else sg.innerHTML = s.signals.map(x => {
+      const sc = x.score == null ? "—" : (x.score >= 0 ? "+" : "") + Number(x.score).toFixed(3);
+      return `<tr><td>${fmtTime(x.timestamp)}</td><td style="color:${col(x.signal)};font-weight:600">${x.signal}</td>
+        <td class="mono">${sc}</td><td class="mono">${fmtPrice(x.price)}</td></tr>`;
+    }).join("");
+  } catch (e) { $("updated").textContent = "déconnecté — nouvelle tentative…"; }
+}
+
+applyI18n();
+initChart();
+loadTabs().then(refresh);
+refreshActivity();
+setInterval(refresh, 3000);
+setInterval(refreshActivity, 3000);
+setInterval(loadTabs, 6000);
+</script>
+</body>
+</html>

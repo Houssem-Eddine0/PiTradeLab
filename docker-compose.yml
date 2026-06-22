@@ -1,0 +1,26 @@
+services:
+  pitradelab:
+    build: .
+    container_name: pitradelab
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persiste la base de données hors du conteneur
+      - ./data:/app/data
+    environment:
+      - EXCHANGE=binance
+      - INITIAL_BALANCE=1000
+      # Multi-actifs : BTC + Or + Apple + EUR/USD par défaut (cf. app/instruments.py).
+      # Pour personnaliser, définir INSTRUMENTS (JSON) dans .env.
+      - INSTRUMENTS=${INSTRUMENTS:-}
+      # IA — valeurs lues depuis le fichier .env (non versionné) :
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - AI_INTERVAL=${AI_INTERVAL:-1800}
+      - AI_WEIGHT=${AI_WEIGHT:-0.5}
+      - NEWS_ENABLED=${NEWS_ENABLED:-true}
+      - NEWS_RSS_URL=${NEWS_RSS_URL:-https://cointelegraph.com/rss}
+      # Trading réel uniquement (laisser vide pour le paper trading) :
+      # - EXCHANGE_API_KEY=
+      # - EXCHANGE_SECRET=
+    restart: unless-stopped
