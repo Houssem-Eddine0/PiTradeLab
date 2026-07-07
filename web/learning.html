@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PiTradeLab — Apprentissage</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="/i18n.js"></script>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --border:#21262d; --text:#e6edf3; --muted:#8b949e;
+          --green:#16c784; --red:#ea3943; --accent:#2f81f7; --gold:#f0b429; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         padding:20px; max-width:1080px; margin:0 auto; }
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+  h1 { font-size:22px; } a { color:var(--accent); text-decoration:none; font-size:14px; }
+  .topnav { display:flex; gap:14px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:16px; }
+  .panel h2 { font-size:15px; margin-bottom:12px; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+  @media (max-width:760px){ .kpis{ grid-template-columns:repeat(2,1fr);} }
+  .kpi { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .kpi .label { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.5px; }
+  .kpi .value { font-size:24px; font-weight:700; margin-top:6px; } .mono{ font-variant-numeric:tabular-nums; }
+  .pos{ color:var(--green);} .neg{ color:var(--red);} .muted{ color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; color:var(--muted); font-weight:500; padding:7px 8px; border-bottom:1px solid var(--border); }
+  td { padding:7px 8px; border-bottom:1px solid var(--border); }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+  @media (max-width:760px){ .grid{ grid-template-columns:1fr; } }
+  .mlcard { border:1px solid var(--border); border-radius:12px; padding:14px; background:var(--panel); }
+  .mlhead { display:flex; justify-content:space-between; align-items:baseline; }
+  .badge { font-size:11px; padding:3px 9px; border-radius:6px; font-weight:700; }
+  .st-done{ background:rgba(22,199,132,.18); color:var(--green);} .st-training{ background:rgba(240,180,41,.18); color:var(--gold);}
+  .st-insufficient,.st-idle{ background:rgba(118,131,144,.18); color:var(--muted);} .st-error,.st-unavailable{ background:rgba(234,57,67,.18); color:var(--red);}
+  .bar { height:8px; background:#30363d; border-radius:4px; margin-top:6px; overflow:hidden; }
+  .bar .fill { height:100%; background:var(--accent); }
+  .note{ font-size:12px; color:var(--muted); margin-top:6px; } button{ font-family:inherit; cursor:pointer; border:1px solid var(--border); border-radius:9px; padding:8px 14px; font-size:13px; font-weight:600; color:var(--text); background:#21262d; } button:hover{ filter:brightness(1.2);} button.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>📈 Apprentissage</h1>
+    <div class="topnav">
+      <a href="/">← Dashboard</a><a href="/adventures">🧭 Aventures</a><a href="/config">⚙️ Configuration</a>
+    </div>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">P&L réalisé (base)</div><div class="value mono" id="k_pnl">—</div></div>
+    <div class="kpi"><div class="label">Aller-retours</div><div class="value mono" id="k_trips">—</div></div>
+    <div class="kpi"><div class="label">Taux de réussite</div><div class="value mono" id="k_win">—</div></div>
+    <div class="kpi"><div class="label">Justesse IA (1 h)</div><div class="value mono" id="k_ai">—</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Courbe d'apprentissage — P&L cumulé réalisé (bot de base)</h2>
+    <canvas id="curve" height="90"></canvas>
+    <div class="note" id="curveNote"></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Performance par actif (base)</h2>
+      <table><thead><tr><th>Actif</th><th>Réussite</th><th>A/R</th><th>P&L</th><th>Valeur</th></tr></thead>
+        <tbody id="baseTbl"><tr><td colspan="5" class="note">En attente de trades…</td></tr></tbody></table>
+    </div>
+    <div class="panel">
+      <h2>Performance par aventure</h2>
+      <table><thead><tr><th>Aventure</th><th>Réussite</th><th>A/R</th><th>P&L</th><th>Valeur</th></tr></thead>
+        <tbody id="advTbl"><tr><td colspan="5" class="note">Aucune aventure.</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <h2 style="margin:0">🧠 Deep learning — modèles (proba de hausse à l'horizon)</h2>
+      <button class="primary" onclick="trainAll()">⚙️ Entraîner maintenant</button>
+    </div>
+    <div class="note" id="mlGlobal" style="margin-top:8px"></div>
+    <div class="grid" id="mlGrid" style="margin-top:12px"></div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = (n,d=2) => n==null ? "—" : Number(n).toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtTime = ts => ts==null ? "" : new Date(ts>1e12?ts:ts*1000).toLocaleString("fr-FR");
+const lossCharts = {};
+
+let curveChart;
+function initCurve(){
+  curveChart = new Chart($("curve"), { type:"line",
+    data:{ labels:[], datasets:[{ data:[], borderColor:"#2f81f7", borderWidth:2, pointRadius:0, tension:.2, fill:true, backgroundColor:"rgba(47,129,247,.08)" }]},
+    options:{ responsive:true, animation:false, plugins:{legend:{display:false}},
+      scales:{ x:{ ticks:{color:"#8b949e",maxTicksLimit:8}, grid:{color:"#21262d"} }, y:{ ticks:{color:"#8b949e"}, grid:{color:"#21262d"} } } } });
+}
+
+async function loadLearning(){
+  try{
+    const d = await fetch("/api/learning").then(r=>r.json());
+    const baseTrips = d.base.reduce((s,b)=>s+(b.round_trips||0),0);
+    const baseWins = d.base.reduce((s,b)=>s+(b.wins||0),0);
+    const basePnl = d.base.reduce((s,b)=>s+(b.realized_pnl||0),0);
+    $("k_pnl").innerHTML = `<span class="${basePnl>=0?'pos':'neg'}">${basePnl>=0?'+':''}${fmt(basePnl)}</span>`;
+    $("k_trips").textContent = baseTrips;
+    $("k_win").textContent = baseTrips ? fmt(100*baseWins/baseTrips,1)+" %" : "—";
+    $("k_ai").textContent = d.ai && d.ai.accuracy!=null ? fmt(d.ai.accuracy,1)+" %  ("+d.ai.n+")" : "— (pas assez)";
+
+    curveChart.data.labels = d.curve.map(p=>fmtTime(p.t));
+    curveChart.data.datasets[0].data = d.curve.map(p=>p.cum);
+    curveChart.update();
+    $("curveNote").textContent = d.curve.length ? "" : "Aucun aller-retour terminé pour l'instant — la courbe apparaît dès la première vente.";
+
+    $("baseTbl").innerHTML = d.base.length ? d.base.map(b=>`<tr>
+      <td>${b.name}</td><td>${b.win_rate==null?'—':fmt(b.win_rate,1)+' %'}</td><td>${b.round_trips}</td>
+      <td class="${b.realized_pnl>=0?'pos':'neg'} mono">${b.realized_pnl>=0?'+':''}${fmt(b.realized_pnl)}</td>
+      <td class="mono">${fmt(b.value)} (${b.pnl_pct>=0?'+':''}${fmt(b.pnl_pct)} %)</td></tr>`).join("")
+      : '<tr><td colspan="5" class="note">En attente de trades…</td></tr>';
+
+    $("advTbl").innerHTML = d.adventures.length ? d.adventures.map(a=>`<tr>
+      <td>${a.name} ${a.enabled?'':'<span class="muted">(pause)</span>'}</td>
+      <td>${a.win_rate==null?'—':fmt(a.win_rate,1)+' %'}</td><td>${a.round_trips}</td>
+      <td class="${a.realized_pnl>=0?'pos':'neg'} mono">${a.realized_pnl>=0?'+':''}${fmt(a.realized_pnl)}</td>
+      <td class="mono">${fmt(a.value)} (${a.pnl_pct>=0?'+':''}${fmt(a.pnl_pct)} %)</td></tr>`).join("")
+      : '<tr><td colspan="5" class="note">Aucune aventure.</td></tr>';
+  }catch(e){}
+}
+
+async function loadML(){
+  try{
+    const d = await fetch("/api/ml/status").then(r=>r.json());
+    if(!d.available){ $("mlGlobal").innerHTML = '<span class="neg">ML désactivé (ML_ENABLED=false)</span>'; }
+    else $("mlGlobal").textContent = `${d.training?'🖥️ Entraînement actif (PC)':'📟 Inférence seule (modèle entraîné sur PC, numpy)'} · modèle ${d.model} · horizon ${d.horizon} bougies · min. ${d.min_samples} échantillons.`;
+    const insts = d.instruments || {};
+    const ids = Object.keys(insts);
+    if(!ids.length){ $("mlGrid").innerHTML = '<div class="note">Aucun modèle encore. Lance un entraînement (il faut assez de bougies collectées).</div>'; return; }
+    $("mlGrid").innerHTML = ids.map(iid=>{
+      const s = insts[iid];
+      const st = s.state||"idle";
+      const acc = s.accuracy!=null ? fmt(100*s.accuracy,1)+" %" : "—";
+      const base = s.baseline!=null ? fmt(100*s.baseline,1)+" %" : "—";
+      const proba = s.proba_up!=null ? fmt(100*s.proba_up,1)+" %" : "—";
+      const probaCls = s.proba_up==null?'':(s.proba_up>=0.5?'pos':'neg');
+      return `<div class="mlcard">
+        <div class="mlhead"><b>${s.name||iid}</b><span class="badge st-${st}">${st}</span></div>
+        <div class="note">${s.message||""}</div>
+        <div style="margin-top:8px">Proba hausse : <span class="${probaCls} mono" style="font-size:18px;font-weight:700">${proba}</span></div>
+        <div class="note">Accuracy ${acc} · baseline ${base} · ${s.n_samples||0} échantillons · ${fmtTime(s.ts)}</div>
+        <canvas id="loss-${iid}" height="70" style="margin-top:8px"></canvas>
+        <div style="margin-top:8px"><button onclick="trainOne('${iid}')">Entraîner</button></div>
+      </div>`;
+    }).join("");
+    ids.forEach(iid=>{
+      const s = insts[iid]; const lc = s.loss_curve;
+      if(!lc || !lc.length) return;
+      const ctx = $("loss-"+iid); if(!ctx) return;
+      if(lossCharts[iid]) lossCharts[iid].destroy();
+      lossCharts[iid] = new Chart(ctx,{ type:"line",
+        data:{ labels:lc.map((_,i)=>i+1), datasets:[{ data:lc, borderColor:"#f0b429", borderWidth:1.5, pointRadius:0, tension:.2 }]},
+        options:{ responsive:true, animation:false, plugins:{legend:{display:false}, title:{display:true,text:"perte d'entraînement",color:"#8b949e",font:{size:10}}},
+          scales:{ x:{ display:false }, y:{ ticks:{color:"#8b949e"}, grid:{color:"#21262d"} } } } });
+    });
+  }catch(e){}
+}
+
+async function trainAll(){ $("mlGlobal").textContent="Entraînement lancé…"; await fetch("/api/ml/train",{method:"POST"}); setTimeout(loadML,1500); }
+async function trainOne(iid){ await fetch("/api/ml/train?instrument="+encodeURIComponent(iid),{method:"POST"}); setTimeout(loadML,1500); }
+
+initCurve(); loadLearning(); loadML();
+setInterval(loadLearning, 5000);
+setInterval(loadML, 5000);
+</script>
+</body>
+</html>

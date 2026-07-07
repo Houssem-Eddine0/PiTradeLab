@@ -22,9 +22,13 @@ DEFAULTS = {
     "buy_threshold": config.BUY_THRESHOLD,
     "sell_threshold": config.SELL_THRESHOLD,
     "ai_weight": config.AI_WEIGHT,
+    "ml_weight": config.ML_WEIGHT,
     "ai_interval": config.AI_INTERVAL,
+    "ai_provider": "gemini",  # "gemini" | "mistral" (IA du bot de base)
     "gemini_api_key": config.GEMINI_API_KEY,
     "gemini_model": config.GEMINI_MODEL,
+    "mistral_api_key": "",
+    "mistral_model": "mistral-small-latest",
     "exchange": config.EXCHANGE,
     "exchange_api_key": config.API_KEY,
     "exchange_secret": config.API_SECRET,
@@ -32,10 +36,12 @@ DEFAULTS = {
     "instruments": default_instrument_dicts(),
 }
 
-SECRET_KEYS = {"gemini_api_key", "exchange_api_key", "exchange_secret"}
+SECRET_KEYS = {"gemini_api_key", "mistral_api_key", "exchange_api_key", "exchange_secret"}
 
 _lock = threading.RLock()
 _data = {}
+_version = 0                       # incrémenté à chaque modification
+_inst_cache = {"version": -1, "list": []}  # mémoïsation de get_instruments()
 
 
 def _load():
@@ -71,6 +77,7 @@ def all_settings():
 
 
 def update(changes: dict):
+    global _version
     with _lock:
         for k, v in changes.items():
             if k not in DEFAULTS:
@@ -81,18 +88,25 @@ def update(changes: dict):
             if k == "instruments" and isinstance(v, list):
                 v = v[:5]  # 5 actifs maximum
             _data[k] = v
+        _version += 1
     save()
 
 
 def get_instruments():
-    """Liste d'objets Instrument (max 5) à partir des settings."""
-    out = []
-    for d in get("instruments", [])[:5]:
-        try:
-            out.append(Instrument(**d))
-        except (TypeError, ValueError):
-            continue
-    return out
+    """Liste d'objets Instrument (max 5), mémoïsée tant que les settings ne changent pas."""
+    with _lock:
+        if _inst_cache["version"] == _version:
+            return list(_inst_cache["list"])
+        out = []
+        for d in get("instruments", [])[:5]:
+            try:
+                out.append(Instrument(**d))
+            except (TypeError, ValueError):
+                continue
+        _inst_cache["version"] = _version
+        _inst_cache["list"] = out
+        return list(out)
 
 
 _load()
+_version = 1  # invalide le cache après le chargement initial

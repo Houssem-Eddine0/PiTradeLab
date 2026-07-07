@@ -13,7 +13,7 @@ import time
 
 import pandas as pd
 
-from app import settings, strategies
+from app import ml, settings, strategies
 from app.config import MIN_ROWS_REQUIRED, TRADING_INTERVAL
 from app.database import get_conn
 from app.state import controller
@@ -61,11 +61,22 @@ def _process(inst, last_ts: dict):
     ai_score = (snap["ai"] or {}).get("score")
     aw = settings.get("ai_weight")
     final_score = tech_score if ai_score is None else (1 - aw) * tech_score + aw * ai_score
+
+    # Fusion ML : la proba de hausse [0..1] devient un score [-1..1], pondéré par ml_weight.
+    ml_w = settings.get("ml_weight") or 0.0
+    ml_score = None
+    if ml_w > 0:
+        proba = ml.get_proba(inst.id)
+        if proba is not None:
+            ml_score = 2.0 * proba - 1.0
+            final_score = (1 - ml_w) * final_score + ml_w * ml_score
+
     final_score = round(max(-1.0, min(1.0, final_score)), 3)
 
     signal = _decide(final_score)
     details["tech_score"] = tech_score
     details["ai_score"] = ai_score
+    details["ml_score"] = round(ml_score, 3) if ml_score is not None else None
     details["final_score"] = final_score
     details["strategy"] = settings.get("strategy")
 

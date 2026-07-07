@@ -1,7 +1,7 @@
 // Traductions partagées (dashboard + configuration). Extensible : ajoute une langue.
 const I18N = {
   fr: {
-    nav_config: "⚙️ Configuration", nav_dashboard: "← Dashboard",
+    nav_config: "⚙️ Configuration", nav_dashboard: "← Dashboard", nav_adventures: "🧭 Aventures", nav_learning: "📈 Apprentissage",
     live_activity: "Activité de trading en direct — tous les actifs",
     live_note: "🤖 le bot achète & vend seul · 👤 = ordre manuel",
     col_time: "Heure", col_asset: "Actif", col_action: "Action", col_price: "Prix",
@@ -23,7 +23,8 @@ const I18N = {
     assets_help: "Choisis jusqu'à 5 actifs.", selected: "sélectionné(s)",
     sec_strategy: "🧠 Stratégie de trading", strategy_label: "Stratégie",
     buy_threshold: "Seuil d'achat", sell_threshold: "Seuil de vente", ai_weight: "Poids de l'IA",
-    ai_interval: "Fréquence IA (s)",
+    ai_interval: "Fréquence IA (s)", ml_weight: "Poids du ML",
+    ml_weight_help: "Poids de la proba du modèle ML dans la décision (0 = ignoré). Entraînement dans l'onglet Apprentissage.",
     sec_ai: "🤖 Clé IA (Gemini)", ai_key_label: "Clé API Gemini", ai_model: "Modèle",
     ai_key_set: "✅ Une clé est déjà enregistrée (laisse vide pour la garder).",
     ai_key_help: "Obtenir une clé : aistudio.google.com/apikey",
@@ -35,7 +36,7 @@ const I18N = {
     keys_set: "✅ Des clés sont déjà enregistrées (laisse vide pour les garder).",
   },
   en: {
-    nav_config: "⚙️ Settings", nav_dashboard: "← Dashboard",
+    nav_config: "⚙️ Settings", nav_dashboard: "← Dashboard", nav_adventures: "🧭 Adventures", nav_learning: "📈 Learning",
     live_activity: "Live trading activity — all assets",
     live_note: "🤖 the bot buys & sells on its own · 👤 = manual order",
     col_time: "Time", col_asset: "Asset", col_action: "Action", col_price: "Price",
@@ -57,7 +58,8 @@ const I18N = {
     assets_help: "Pick up to 5 assets.", selected: "selected",
     sec_strategy: "🧠 Trading strategy", strategy_label: "Strategy",
     buy_threshold: "Buy threshold", sell_threshold: "Sell threshold", ai_weight: "AI weight",
-    ai_interval: "AI frequency (s)",
+    ai_interval: "AI frequency (s)", ml_weight: "ML weight",
+    ml_weight_help: "Weight of the ML model probability in the decision (0 = ignored). Train it in the Learning tab.",
     sec_ai: "🤖 AI key (Gemini)", ai_key_label: "Gemini API key", ai_model: "Model",
     ai_key_set: "✅ A key is already saved (leave empty to keep it).",
     ai_key_help: "Get a key: aistudio.google.com/apikey",
@@ -69,7 +71,7 @@ const I18N = {
     keys_set: "✅ Keys are already saved (leave empty to keep them).",
   },
   es: {
-    nav_config: "⚙️ Configuración", nav_dashboard: "← Panel",
+    nav_config: "⚙️ Configuración", nav_dashboard: "← Panel", nav_adventures: "🧭 Aventuras", nav_learning: "📈 Aprendizaje",
     live_activity: "Actividad de trading en vivo — todos los activos",
     live_note: "🤖 el bot compra y vende solo · 👤 = orden manual",
     col_time: "Hora", col_asset: "Activo", col_action: "Acción", col_price: "Precio",
@@ -91,7 +93,8 @@ const I18N = {
     assets_help: "Elige hasta 5 activos.", selected: "seleccionados",
     sec_strategy: "🧠 Estrategia de trading", strategy_label: "Estrategia",
     buy_threshold: "Umbral de compra", sell_threshold: "Umbral de venta", ai_weight: "Peso de la IA",
-    ai_interval: "Frecuencia IA (s)",
+    ai_interval: "Frecuencia IA (s)", ml_weight: "Peso del ML",
+    ml_weight_help: "Peso de la probabilidad del modelo ML en la decisión (0 = ignorado). Entrénalo en la pestaña Aprendizaje.",
     sec_ai: "🤖 Clave IA (Gemini)", ai_key_label: "Clave API Gemini", ai_model: "Modelo",
     ai_key_set: "✅ Ya hay una clave guardada (deja vacío para conservarla).",
     ai_key_help: "Obtener clave: aistudio.google.com/apikey",

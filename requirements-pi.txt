@@ -1,0 +1,22 @@
+# Dépendances Raspberry Pi Zero (ARMv6, cp311) — SANS scikit-learn, SANS Rust.
+# Objectif : que pip n'installe QUE des wheels précompilés (piwheels) → aucune
+# compilation sur le Pi. Choix clés :
+#   - pydantic v1 (100% Python) au lieu de v2 : évite pydantic-core (Rust, pas de wheel ARMv6).
+#   - fastapi < 0.100 : compatible pydantic v1.
+#   - yfinance 0.2.40 : versions plus récentes tirent curl_cffi (compilation C).
+#   - cffi < 2 : wheel ARMv6 dispo (la 2.x se compile depuis les sources).
+# L'inférence ML se fait en numpy pur (app/ml/predictor.py), modèle entraîné sur PC.
+# Build via Dockerfile.pi (+ --extra-index-url https://www.piwheels.org/simple).
+ccxt>=4,<5
+cryptography==46.0.6          # version EXACTE avec wheel ARMv6 sur piwheels (Rust : jamais compiler)
+# cffi est tiré par cryptography (>=2.0) ; s'il n'a pas de wheel ARMv6 il se compile
+# en C (rapide) grâce à libffi-dev installé dans Dockerfile.pi — pas de Rust ici.
+yfinance>=0.2.40,<0.2.41
+numpy>=1.26,<2.3
+pandas>=2.2,<2.3
+ta>=0.11,<0.12
+requests>=2.31,<3
+python-dotenv>=1,<2
+pydantic>=1.10,<2
+fastapi>=0.95,<0.100
+uvicorn>=0.29,<1

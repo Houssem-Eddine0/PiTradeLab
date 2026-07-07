@@ -1,11 +1,14 @@
-# Bornes par version majeure : pip choisit une version compatible au build,
-# tout en évitant qu'une montée de version majeure casse silencieusement l'image.
+# Dépendances PC (développement + entraînement ML). Pour le Raspberry Pi, voir
+# requirements-pi.txt (sans scikit-learn : l'inférence ML y est faite en numpy pur).
+# Bornes par version majeure : évite les builds cassés par une montée majeure.
 ccxt>=4,<5
 yfinance>=0.2.40,<0.3
 pandas>=2.2,<3
 numpy>=1.26,<3
 ta>=0.11,<0.12
-fastapi>=0.110,<1
-uvicorn[standard]>=0.29,<1
 requests>=2.31,<3
 python-dotenv>=1,<2
+fastapi>=0.110,<1
+uvicorn>=0.29,<1
+# --- Entraînement ML uniquement (PC) — PAS requis sur Pi (inférence numpy) ---
+scikit-learn>=1.4,<2

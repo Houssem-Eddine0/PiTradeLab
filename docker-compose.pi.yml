@@ -1,0 +1,28 @@
+# Déploiement sur le Raspberry Pi Zero — utilise l'IMAGE PRÉ-CONSTRUITE sur PC
+# (aucun build sur le Pi). Charger l'image d'abord : docker load -i pitradelab-pi.tar
+services:
+  pitradelab:
+    image: pitradelab:pi
+    container_name: pitradelab
+    # Lancement explicite (robuste quelle que soit la métadonnée ENTRYPOINT de l'image)
+    entrypoint: ["uvicorn"]
+    command: ["app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data          # base SQLite + settings + modèles ML persistés
+    environment:
+      # Pi Zero = inférence ML uniquement (entraînement sur PC, JSON copié dans data/models/)
+      - ML_TRAIN_ENABLED=false
+      - INITIAL_BALANCE=1000
+      - INSTRUMENTS=${INSTRUMENTS:-}
+      # IA (lues depuis .env non versionné) :
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - AI_INTERVAL=${AI_INTERVAL:-1800}
+      - AI_WEIGHT=${AI_WEIGHT:-0.5}
+      - ML_WEIGHT=${ML_WEIGHT:-0.0}
+      - NEWS_ENABLED=${NEWS_ENABLED:-true}
+    restart: unless-stopped
+    # Pi Zero : 427 Mo RAM + 511 Mo swap. Pas de mem_limit strict (éviterait un
+    # OOM-kill du conteneur lors d'un pic pandas) — on laisse l'OS + le swap gérer.

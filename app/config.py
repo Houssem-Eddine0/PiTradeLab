@@ -64,3 +64,16 @@ AI_WEIGHT = _f("AI_WEIGHT", 0.5)                 # poids de l'avis IA dans le sc
 # --- News ---
 NEWS_ENABLED = os.getenv("NEWS_ENABLED", "true").lower() == "true"
 NEWS_RSS_URL = os.getenv("NEWS_RSS_URL", "https://cointelegraph.com/rss")
+
+# --- Machine Learning (Phase 4) ---
+ML_ENABLED = os.getenv("ML_ENABLED", "true").lower() == "true"
+# Entraînement = scikit-learn (lourd) → à faire sur PC. Sur Pi Zero, laisser FALSE :
+# le bot charge alors le modèle portable (JSON) entraîné sur PC et fait l'INFÉRENCE
+# en numpy pur (sans scikit-learn).
+ML_TRAIN_ENABLED = os.getenv("ML_TRAIN_ENABLED", "true").lower() == "true"
+ML_MODEL = os.getenv("ML_MODEL", "mlp")      # "mlp" (réseau de neurones) | "logreg" (léger)
+ML_INTERVAL = _i("ML_INTERVAL", 1800)        # ré-entraînement / ré-inférence périodique (s)
+ML_MIN_SAMPLES = _i("ML_MIN_SAMPLES", 200)   # échantillons min. avant d'entraîner
+ML_HORIZON = _i("ML_HORIZON", 10)            # horizon du label : hausse/baisse dans N bougies
+ML_WEIGHT = _f("ML_WEIGHT", 0.0)             # poids de la proba ML dans le score final [0..1] (0 = désactivé)
+ML_DIR = os.getenv("ML_DIR", os.path.join(os.path.dirname(DB_PATH) or ".", "models"))

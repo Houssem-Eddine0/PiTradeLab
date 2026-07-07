@@ -46,7 +46,11 @@
 <body>
   <header>
     <h1 data-i18n="config_title">⚙️ Configuration</h1>
-    <a href="/" data-i18n="nav_dashboard">← Dashboard</a>
+    <div class="topnav" style="display:flex;gap:14px">
+      <a href="/" data-i18n="nav_dashboard">← Dashboard</a>
+      <a href="/adventures" data-i18n="nav_adventures">🧭 Aventures</a>
+      <a href="/learning" data-i18n="nav_learning">📈 Apprentissage</a>
+    </div>
   </header>
 
   <div class="panel">
@@ -69,10 +73,12 @@
       <div><label data-i18n="buy_threshold">Seuil d'achat</label><input type="number" step="0.05" id="buy_threshold"></div>
       <div><label data-i18n="sell_threshold">Seuil de vente</label><input type="number" step="0.05" id="sell_threshold"></div>
     </div>
-    <div class="row">
+    <div class="row3" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
       <div><label data-i18n="ai_weight">Poids de l'IA</label><input type="number" step="0.1" min="0" max="1" id="ai_weight"></div>
+      <div><label data-i18n="ml_weight">Poids du ML</label><input type="number" step="0.1" min="0" max="1" id="ml_weight"></div>
       <div><label data-i18n="ai_interval">Fréquence IA (s)</label><input type="number" step="60" min="60" id="ai_interval"></div>
     </div>
+    <div class="note" data-i18n="ml_weight_help">Poids de la proba du modèle ML dans la décision (0 = ignoré). Le modèle s'entraîne dans l'onglet Apprentissage.</div>
   </div>
 
   <div class="panel">
@@ -127,6 +133,7 @@ async function load() {
   $("buy_threshold").value = s.buy_threshold;
   $("sell_threshold").value = s.sell_threshold;
   $("ai_weight").value = s.ai_weight;
+  $("ml_weight").value = s.ml_weight;
   $("ai_interval").value = s.ai_interval;
   $("gemini_model").value = s.gemini_model;
   $("exchange").value = s.exchange;
@@ -184,7 +191,8 @@ async function saveAll() {
   const payload = {
     language: LANG, strategy: $("strategy").value,
     buy_threshold: parseFloat($("buy_threshold").value), sell_threshold: parseFloat($("sell_threshold").value),
-    ai_weight: parseFloat($("ai_weight").value), ai_interval: parseInt($("ai_interval").value, 10),
+    ai_weight: parseFloat($("ai_weight").value), ml_weight: parseFloat($("ml_weight").value),
+    ai_interval: parseInt($("ai_interval").value, 10),
     gemini_model: $("gemini_model").value,
     exchange: $("exchange").value, trading_mode: $("trading_mode").value, instruments,
   };

@@ -1,19 +1,18 @@
 """
-Client Gemini (API Google Generative Language) via REST.
+IA du bot de base (paper trading). S'appuie sur la couche multi-fournisseurs
+`app/llm`. Le fournisseur actif et la clé sont lus dynamiquement depuis les
+settings → modifier la clé/fournisseur dans la page de configuration active l'IA
+sans redémarrer.
 
-Clé et modèle lus dynamiquement depuis les settings : modifier la clé dans la
-page de configuration active l'IA sans redémarrer. Auth par clé API (?key=) avec
-repli Bearer si la clé est en fait un token OAuth.
+Les aventures, elles, peuvent utiliser leur propre fournisseur/clé (voir
+app/adventures.py) ou retomber sur cette configuration de base.
 """
 import logging
 
-import requests
-
 from app import settings
+from app.llm import ask as llm_ask
 
 log = logging.getLogger("ai")
-
-BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 LANG_INSTRUCTION = {
     "fr": "Réponds en français.",
@@ -22,40 +21,26 @@ LANG_INSTRUCTION = {
 }
 
 
+def _active():
+    """(provider, api_key, model) de l'IA de base selon les settings."""
+    provider = settings.get("ai_provider") or "gemini"
+    if provider == "mistral":
+        return "mistral", settings.get("mistral_api_key"), settings.get("mistral_model")
+    return "gemini", settings.get("gemini_api_key"), settings.get("gemini_model")
+
+
 def ai_available() -> bool:
-    return bool(settings.get("gemini_api_key"))
+    _, key, _ = _active()
+    return bool(key)
 
 
 def lang_instruction() -> str:
     return LANG_INSTRUCTION.get(settings.get("language", "fr"), LANG_INSTRUCTION["fr"])
 
 
-def _extract_text(data: dict) -> str:
-    candidates = data.get("candidates")
-    if not candidates:
-        raise RuntimeError(f"réponse vide de Gemini ({data.get('promptFeedback')})")
-    parts = candidates[0].get("content", {}).get("parts")
-    if not parts:
-        raise RuntimeError("réponse Gemini sans contenu (filtrée ?)")
-    return parts[0].get("text", "").strip()
-
-
 def ask(prompt: str, system: str = None, json_mode: bool = False, timeout: int = 30) -> str:
-    key = settings.get("gemini_api_key")
-    model = settings.get("gemini_model") or "gemini-2.5-flash"
+    provider, key, model = _active()
     if not key:
-        raise RuntimeError("clé Gemini manquante")
-
-    body = {"contents": [{"parts": [{"text": prompt}]}]}
-    if system:
-        body["systemInstruction"] = {"parts": [{"text": system}]}
-    if json_mode:
-        body["generationConfig"] = {"responseMimeType": "application/json"}
-
-    endpoint = f"{BASE}/{model}:generateContent"
-    r = requests.post(f"{endpoint}?key={key}", json=body, timeout=timeout)
-    if r.status_code in (401, 403):
-        r = requests.post(endpoint, json=body, timeout=timeout,
-                          headers={"Authorization": f"Bearer {key}"})
-    r.raise_for_status()
-    return _extract_text(r.json())
+        raise RuntimeError("clé IA manquante")
+    return llm_ask(prompt, system=system, json_mode=json_mode,
+                   provider=provider, api_key=key, model=model, timeout=timeout)

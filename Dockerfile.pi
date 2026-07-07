@@ -1,0 +1,42 @@
+# Image pour Raspberry Pi Zero / Zero W (v1) — ARMv6 / Raspbian.
+#
+# À CROSS-BUILDER SUR PC (pas sur le Pi !) : voir build-pi.ps1
+#   docker buildx build --platform linux/arm/v6 -f Dockerfile.pi ...
+#
+# Pourquoi cette base et pas python:3.11-slim :
+#   - python:3.11-slim = Debian compilé pour ARMv7 → plante sur l'ARMv6 du Pi Zero.
+#   - balenalib/raspberry-pi-* = Raspbian ARMv6 → binaires compatibles Pi Zero ET
+#     tag de plateforme "armv6l" pour que pip prenne les wheels précompilés piwheels
+#     (numpy, pandas, cryptography, pydantic-core, lxml…) → AUCUNE compilation.
+
+# ---- Étape build : venv + dépendances (wheels ARMv6) ----
+FROM balenalib/raspberry-pi-python:3.11-bookworm-build AS builder
+ENV PIP_NO_CACHE_DIR=1
+# En-têtes C au cas où un petit paquet se compile (ex. cffi) — la plupart viennent
+# en wheels via piwheels, mais ceci évite un échec sur "ffi.h introuvable".
+RUN apt-get update && apt-get install -y --no-install-recommends libffi-dev libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+RUN python -m venv --copies /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+COPY requirements-pi.txt ./
+RUN pip install --no-cache-dir --extra-index-url https://www.piwheels.org/simple -r requirements-pi.txt
+
+# ---- Étape finale : image légère (sans compilateurs) ----
+FROM balenalib/raspberry-pi-python:3.11-bookworm-run
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    ML_TRAIN_ENABLED=false
+# Bibliothèques système d'exécution requises par les wheels piwheels :
+#   numpy -> libopenblas.so.0 (+ libgfortran5) ; lxml -> libxml2 / libxslt.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libopenblas0-pthread libgfortran5 libxml2 libxslt1.1 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /opt/venv /opt/venv
+COPY app ./app
+COPY web ./web
+RUN mkdir -p data
+EXPOSE 8000
+# 1 seul worker : tout l'état (threads collector/trader/ML, SQLite) vit dans le process.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

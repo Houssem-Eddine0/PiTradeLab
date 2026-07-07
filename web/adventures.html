@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PiTradeLab — Aventures</title>
+<script src="/i18n.js"></script>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --border:#21262d; --text:#e6edf3; --muted:#8b949e;
+          --green:#16c784; --red:#ea3943; --accent:#2f81f7; --gold:#f0b429; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         padding:20px; max-width:1040px; margin:0 auto; }
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+  h1 { font-size:22px; } a { color:var(--accent); text-decoration:none; font-size:14px; }
+  .topnav { display:flex; gap:14px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:16px; }
+  .panel h2 { font-size:15px; margin-bottom:12px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 6px; }
+  input,select,textarea { width:100%; background:#0d1117; border:1px solid var(--border); border-radius:9px;
+                 padding:10px 12px; color:var(--text); font-size:14px; font-family:inherit; }
+  textarea { min-height:70px; resize:vertical; }
+  input:focus,select:focus,textarea:focus { outline:none; border-color:var(--accent); }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:14px; } .row3 { grid-template-columns:1fr 1fr 1fr; }
+  @media (max-width:640px){ .row,.row3{ grid-template-columns:1fr; } }
+  button { font-family:inherit; cursor:pointer; border:1px solid var(--border); border-radius:9px;
+           padding:10px 16px; font-size:14px; font-weight:600; color:var(--text); background:#21262d; }
+  button:hover { filter:brightness(1.2); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.danger { background:rgba(234,57,67,.15); color:var(--red); border-color:rgba(234,57,67,.4); }
+  button.small { padding:6px 12px; font-size:12.5px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { border:1px solid var(--border); border-radius:20px; padding:7px 13px; font-size:13px; cursor:pointer; user-select:none; background:#0d1117; }
+  .chip.on { background:rgba(47,129,247,.18); border-color:var(--accent); color:#fff; }
+  .chip.disabled { opacity:.4; cursor:not-allowed; }
+  .gname { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin:8px 0 6px; }
+  .note { font-size:12px; color:var(--muted); margin-top:6px; }
+  .warn { font-size:12.5px; color:var(--gold); background:rgba(240,180,41,.08); border:1px solid rgba(240,180,41,.25);
+          border-radius:8px; padding:9px 12px; margin:10px 0; }
+  .ok { color:var(--green); } .ko { color:var(--red); }
+  .adv { border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px; background:var(--panel); }
+  .adv.up { border-color:rgba(22,199,132,.4); } .adv.down { border-color:rgba(234,57,67,.4); }
+  .adv-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .adv-name { font-size:16px; font-weight:700; }
+  .badge { font-size:11px; padding:3px 9px; border-radius:6px; font-weight:700; letter-spacing:.5px; }
+  .b-on { background:rgba(22,199,132,.18); color:var(--green); } .b-off { background:rgba(118,131,144,.18); color:var(--muted); }
+  .b-broker { background:rgba(47,129,247,.15); color:var(--accent); }
+  .pnl { font-weight:700; } .pos{ color:var(--green);} .neg{ color:var(--red);} .mono{ font-variant-numeric:tabular-nums; }
+  .legs { margin-top:10px; font-size:13px; }
+  .leg { display:flex; justify-content:space-between; gap:8px; padding:5px 0; border-top:1px solid var(--border); }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .hidden { display:none; }
+  .savebar { display:flex; align-items:center; gap:14px; }
+  #aiTest,#brokerTest { font-size:13px; margin-top:6px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🧭 Aventures</h1>
+    <div class="topnav">
+      <a href="/">← Dashboard</a>
+      <a href="/learning">📈 Apprentissage</a>
+      <a href="/config">⚙️ Configuration</a>
+    </div>
+  </header>
+
+  <div class="warn">
+    Les aventures tournent <b>en parallèle</b> du bot virtuel de base (qui continue d'apprendre).
+    Mode <b>Simulation</b> = prix réels, aucun argent réel. Les courtiers <b>Alpaca/OANDA</b> (paper)
+    arrivent à l'étape 3 — d'ici là toute aventure s'exécute en simulation.
+  </div>
+
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <h2 style="margin:0">Mes aventures</h2>
+      <button class="primary" onclick="newAdventure()">➕ Nouvelle aventure</button>
+    </div>
+    <div id="list" style="margin-top:12px"></div>
+  </div>
+
+  <!-- Formulaire création / édition -->
+  <div class="panel hidden" id="form">
+    <h2 id="formTitle">Nouvelle aventure</h2>
+    <div class="row">
+      <div><label>Nom</label><input id="f_name" placeholder="Mon aventure or & forex"></div>
+      <div><label>Capital max (devise de cotation)</label><input type="number" step="1" min="0" id="f_max_capital" value="30"></div>
+    </div>
+    <div class="row">
+      <div><label>Exécution (courtier)</label><select id="f_broker"></select></div>
+      <div><label>Stratégie</label><select id="f_strategy"></select></div>
+    </div>
+
+    <label>Actifs (max 5)</label>
+    <div id="f_assets"></div>
+
+    <div class="row3">
+      <div><label>Seuil d'achat</label><input type="number" step="0.05" id="f_buy_threshold" value="0.35"></div>
+      <div><label>Seuil de vente</label><input type="number" step="0.05" id="f_sell_threshold" value="-0.35"></div>
+      <div><label>Poids de l'IA</label><input type="number" step="0.1" min="0" max="1" id="f_ai_weight" value="0.3"></div>
+    </div>
+    <label>Poids du Machine Learning (proba de hausse, 0 = ignoré)</label>
+    <input type="number" step="0.1" min="0" max="1" id="f_ml_weight" value="0">
+    <div class="note">Le modèle ML s'entraîne dans l'onglet 📈 Apprentissage (proba par actif).</div>
+
+    <h2 style="margin-top:16px">🤖 IA de l'aventure</h2>
+    <div class="note">Laisse vide pour utiliser l'IA configurée par défaut. Sinon choisis un fournisseur + ta clé (testée avant enregistrement).</div>
+    <div class="row3">
+      <div><label>Fournisseur</label><select id="f_ai_provider"></select></div>
+      <div><label>Modèle (optionnel)</label><input id="f_ai_model" placeholder="défaut du fournisseur"></div>
+      <div><label>Clé API</label><input type="password" id="f_ai_api_key" placeholder="laisser vide = clé de base"></div>
+    </div>
+    <div><button class="small" onclick="testAi()">🔌 Tester la clé IA</button> <span id="aiTest"></span></div>
+    <label>Prompt de départ (préférences de trading)</label>
+    <textarea id="f_ai_prompt" placeholder="Ex : Je préfère un trading prudent, plutôt l'or et le forex, horizon court terme, éviter les positions trop risquées…"></textarea>
+
+    <h2 style="margin-top:16px">🏦 Courtier (compte de démonstration / paper)</h2>
+    <div class="warn" id="brokerHelp">Mode <b>Simulation</b> : aucun identifiant requis.</div>
+    <div id="brokerCreds" class="hidden">
+      <div class="row3">
+        <div id="d_bkey"><label id="lbl_bkey">Clé / Token</label><input type="password" id="f_broker_key"></div>
+        <div id="d_bsecret"><label id="lbl_bsecret">Secret</label><input type="password" id="f_broker_secret"></div>
+        <div id="d_bacct"><label id="lbl_bacct">Account ID</label><input id="f_broker_account"></div>
+      </div>
+      <div style="margin-top:8px"><button class="small" onclick="testBrokerForm()">🔌 Tester les identifiants</button> <span id="brokerTestForm"></span></div>
+      <div class="note" id="brokerKeysSet"></div>
+    </div>
+
+    <div class="savebar" style="margin-top:16px">
+      <button class="primary" onclick="saveAdventure()">💾 Enregistrer</button>
+      <button onclick="closeForm()">Annuler</button>
+      <span id="formFeedback"></span>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+let meta = { brokers:[], providers:[], strategies:[], catalog:[] };
+let selected = [];      // ids d'actifs sélectionnés dans le formulaire
+let editingId = null;   // null => création
+
+const fmt = (n,d=2) => n==null ? "—" : Number(n).toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d});
+function fmtPrice(n){ if(n==null) return "—"; const d=Math.abs(n)>=100?2:Math.abs(n)>=1?4:5; return Number(n).toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+
+async function load() {
+  const d = await fetch("/api/adventures").then(r=>r.json());
+  meta = { brokers:d.brokers, providers:d.providers, strategies:d.strategies, catalog:d.catalog };
+  if (d.language && d.language !== LANG) { setLang(d.language); }
+  renderList(d.adventures);
+}
+
+function realHtml(real) {
+  if (!real) return "";
+  if (!real.ok) return `<div class="note" style="margin-top:8px;color:var(--red)">💼 Compte réel : ${real.error||'indisponible'}</div>`;
+  const pos = (real.positions||[]).filter(p=>p.units);
+  const posTxt = pos.length ? pos.map(p=>`${p.symbol} ${fmt(p.units,4)} (PL ${p.pl>=0?'+':''}${fmt(p.pl)})`).join(" · ") : "aucune position ouverte";
+  return `<div class="note" style="margin-top:8px;color:var(--green)">💼 <b>Compte réel</b> : solde ${fmt(real.balance)} · valeur ${fmt(real.equity)} ${real.currency||''} — ${posTxt}</div>`;
+}
+
+function renderList(advs) {
+  if (!advs.length) { $("list").innerHTML = '<div class="note">Aucune aventure. Crée ta première avec le bouton ci-dessus.</div>'; return; }
+  $("list").innerHTML = advs.map(a => {
+    const cls = a.profit >= 0 ? "up" : "down";
+    const pcls = a.profit >= 0 ? "pos" : "neg";
+    const legs = (a.legs||[]).map(l => {
+      const sent = l.ai && l.ai.sentiment ? ` · IA ${l.ai.sentiment}` : "";
+      return `<div class="leg"><span>${l.name} <span class="note">${l.asset_class}</span></span>
+        <span class="mono">${fmtPrice(l.price)} ${l.quote||""} · val. ${fmt(l.value)}${sent}</span></div>`;
+    }).join("");
+    return `<div class="adv ${cls}">
+      <div class="adv-head">
+        <span class="adv-name">${a.name}</span>
+        <span>
+          <span class="badge ${a.enabled?'b-on':'b-off'}">${a.enabled?'ACTIVE':'EN PAUSE'}</span>
+          <span class="badge b-broker">${a.broker}</span>
+          ${a.ai_key_set?'<span class="badge b-broker">clé IA</span>':''}
+        </span>
+      </div>
+      <div style="margin-top:8px"><span class="pnl ${pcls} mono">${a.profit>=0?'+':''}${fmt(a.profit)} (${a.pnl>=0?'+':''}${fmt(a.pnl)} %)</span>
+        <span class="note">· capital max ${fmt(a.initial)} · valeur ${fmt(a.total)}</span></div>
+      <div class="legs">${legs}</div>
+      ${realHtml(a.real)}
+      <div class="actions">
+        <button class="small" onclick="toggleEnabled('${a.id}',${!a.enabled})">${a.enabled?'⏸️ Mettre en pause':'▶️ Activer'}</button>
+        <button class="small" onclick="editAdventure('${a.id}')">✏️ Modifier</button>
+        <button class="small" onclick="testBroker('${a.id}')">🔌 Tester courtier</button>
+        <button class="small danger" onclick="del('${a.id}','${a.name.replace(/'/g,"")}')">🗑️ Supprimer</button>
+        <span class="note" id="bk-${a.id}"></span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function fillSelects() {
+  $("f_broker").innerHTML = meta.brokers.map(b=>`<option value="${b}">${b}</option>`).join("");
+  $("f_broker").onchange = updateBrokerUI;
+  $("f_strategy").innerHTML = meta.strategies.map(s=>`<option value="${s.id}">${s.name}</option>`).join("");
+  $("f_ai_provider").innerHTML = '<option value="">(IA de base)</option>' + meta.providers.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
+}
+
+function updateBrokerUI() {
+  const b = $("f_broker").value;
+  const creds = $("brokerCreds"), help = $("brokerHelp");
+  $("brokerTestForm").textContent = "";
+  if (b === "sim") {
+    creds.classList.add("hidden");
+    help.innerHTML = "Mode <b>Simulation</b> : prix réels, ordres virtuels, aucun identifiant requis.";
+    return;
+  }
+  creds.classList.remove("hidden");
+  if (b === "oanda_paper") {
+    help.innerHTML = "<b>OANDA practice</b> (argent fictif, ordres réels) — couvre forex, or/argent, indices (dont CAC 40). Token API + Account ID.";
+    $("lbl_bkey").textContent = "Token API";
+    $("d_bsecret").classList.add("hidden");
+    $("d_bacct").classList.remove("hidden"); $("lbl_bacct").textContent = "Account ID";
+  } else if (b === "alpaca_paper") {
+    help.innerHTML = "<b>Alpaca paper</b> (argent fictif, ordres réels) — couvre actions US + crypto. Clé (Key ID) + Secret.";
+    $("lbl_bkey").textContent = "Clé API (Key ID)";
+    $("d_bsecret").classList.remove("hidden"); $("lbl_bsecret").textContent = "Secret";
+    $("d_bacct").classList.add("hidden");
+  }
+}
+
+async function testBrokerForm() {
+  const b = $("f_broker").value;
+  if (b === "sim") { $("brokerTestForm").innerHTML='<span class="ok">✅ Simulation — rien à tester.</span>'; return; }
+  $("brokerTestForm").textContent = "…";
+  const body = { broker:b, broker_key:$("f_broker_key").value, broker_secret:$("f_broker_secret").value, broker_account:$("f_broker_account").value };
+  const d = await fetch("/api/broker/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.json());
+  $("brokerTestForm").innerHTML = d.ok ? '<span class="ok">✅ '+(d.message||"OK")+'</span>' : '<span class="ko">❌ '+(d.error||"échec")+'</span>';
+}
+
+function renderAssets() {
+  const groups = {};
+  meta.catalog.forEach(i => { (groups[i.asset_class]=groups[i.asset_class]||[]).push(i); });
+  const labels = {crypto:"Crypto", commodity:"Matières premières", stock:"Actions", forex:"Devises", index:"Indices"};
+  $("f_assets").innerHTML = Object.keys(groups).map(g => `<div class="gname">${labels[g]||g}</div>
+    <div class="chips">${groups[g].map(i=>{
+      const on = selected.includes(i.id); const dis = !on && selected.length>=5;
+      return `<div class="chip ${on?'on':''} ${dis?'disabled':''}" onclick="toggleAsset('${i.id}')">${i.name}</div>`;
+    }).join("")}</div>`).join("");
+}
+function toggleAsset(id){ if(selected.includes(id)) selected=selected.filter(x=>x!==id); else { if(selected.length>=5) return; selected.push(id); } renderAssets(); }
+
+function newAdventure() {
+  editingId = null; selected = [];
+  $("formTitle").textContent = "Nouvelle aventure";
+  fillSelects(); renderAssets();
+  ["f_name","f_ai_model","f_ai_api_key","f_ai_prompt","f_broker_key","f_broker_secret","f_broker_account"].forEach(k=>$(k).value="");
+  $("f_max_capital").value=30; $("f_buy_threshold").value=0.35; $("f_sell_threshold").value=-0.35; $("f_ai_weight").value=0.3; $("f_ml_weight").value=0;
+  $("f_broker").value="sim"; $("f_ai_provider").value=""; $("aiTest").textContent=""; $("brokerKeysSet").textContent=""; $("formFeedback").textContent="";
+  updateBrokerUI();
+  $("form").classList.remove("hidden"); $("form").scrollIntoView({behavior:"smooth"});
+}
+
+async function editAdventure(id) {
+  const advs = await fetch("/api/adventures").then(r=>r.json()).then(d=>d.adventures);
+  const a = advs.find(x=>x.id===id); if(!a) return;
+  editingId = id; selected = (a.legs||[]).map(l=>l.id);
+  $("formTitle").textContent = "Modifier : " + a.name;
+  fillSelects(); renderAssets();
+  $("f_name").value=a.name; $("f_max_capital").value=a.initial; $("f_broker").value=a.broker;
+  $("f_strategy").value=a.strategy; $("f_buy_threshold").value=a.buy_threshold; $("f_sell_threshold").value=a.sell_threshold;
+  $("f_ai_weight").value=a.ai_weight; $("f_ml_weight").value=a.ml_weight||0; $("f_ai_provider").value=a.ai_provider||""; $("f_ai_model").value=a.ai_model||"";
+  $("f_ai_api_key").value=""; $("f_ai_prompt").value=a.ai_prompt||"";
+  $("aiTest").innerHTML = a.ai_key_set ? '<span class="ok">✅ une clé est déjà enregistrée (laisse vide pour la garder)</span>' : "";
+  $("f_broker_key").value=""; $("f_broker_secret").value=""; $("f_broker_account").value=a.broker_account||"";
+  $("brokerKeysSet").innerHTML = a.broker_keys_set ? '<span class="ok">✅ identifiants déjà enregistrés (laisse vide pour les garder)</span>' : "";
+  updateBrokerUI();
+  $("formFeedback").textContent=""; $("form").classList.remove("hidden"); $("form").scrollIntoView({behavior:"smooth"});
+}
+function closeForm(){ $("form").classList.add("hidden"); }
+
+async function testAi() {
+  const provider = $("f_ai_provider").value; const key = $("f_ai_api_key").value.trim();
+  if (!provider) { $("aiTest").innerHTML='<span class="note">Sélectionne un fournisseur pour tester.</span>'; return; }
+  if (!key) { $("aiTest").innerHTML='<span class="note">Saisis une clé à tester.</span>'; return; }
+  $("aiTest").textContent="…";
+  const d = await fetch("/api/ai/test",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({provider, api_key:key, model:$("f_ai_model").value||null})}).then(r=>r.json());
+  $("aiTest").innerHTML = d.ok ? '<span class="ok">✅ '+(d.message||"OK")+'</span>' : '<span class="ko">❌ '+(d.error||"échec")+'</span>';
+}
+
+async function testBroker(id) {
+  $("bk-"+id).textContent="…";
+  const d = await fetch("/api/adventures/"+id+"/test-broker",{method:"POST"}).then(r=>r.json());
+  $("bk-"+id).innerHTML = d.ok ? '<span class="ok">✅ '+(d.message||"OK")+'</span>' : '<span class="ko">❌ '+(d.error||"")+'</span>';
+}
+
+async function saveAdventure() {
+  const assets = selected.map(id => meta.catalog.find(c=>c.id===id)).filter(Boolean);
+  if (!$("f_name").value.trim()) { $("formFeedback").innerHTML='<span class="ko">Donne un nom.</span>'; return; }
+  if (!assets.length) { $("formFeedback").innerHTML='<span class="ko">Choisis au moins un actif.</span>'; return; }
+  const payload = {
+    name:$("f_name").value.trim(), broker:$("f_broker").value, max_capital:parseFloat($("f_max_capital").value),
+    instruments:assets, strategy:$("f_strategy").value,
+    buy_threshold:parseFloat($("f_buy_threshold").value), sell_threshold:parseFloat($("f_sell_threshold").value),
+    ai_weight:parseFloat($("f_ai_weight").value), ml_weight:parseFloat($("f_ml_weight").value), ai_provider:$("f_ai_provider").value,
+    ai_model:$("f_ai_model").value, ai_prompt:$("f_ai_prompt").value,
+    broker_account:$("f_broker_account").value,
+  };
+  const key = $("f_ai_api_key").value.trim(); if (key) payload.ai_api_key = key;
+  const bk = $("f_broker_key").value.trim(); if (bk) payload.broker_key = bk;
+  const bs = $("f_broker_secret").value.trim(); if (bs) payload.broker_secret = bs;
+  const url = editingId ? "/api/adventures/"+editingId : "/api/adventures";
+  const d = await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}).then(r=>r.json());
+  if (d.ok) { $("formFeedback").innerHTML='<span class="ok">✅ Enregistré</span>'; closeForm(); load(); }
+  else $("formFeedback").innerHTML='<span class="ko">❌ '+(d.error||"erreur")+'</span>';
+}
+
+async function toggleEnabled(id, enabled) {
+  await fetch("/api/adventures/"+id,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled})});
+  load();
+}
+async function del(id, name) {
+  if (!confirm("Supprimer l'aventure « "+name+" » ? (l'historique reste en base)")) return;
+  await fetch("/api/adventures/"+id,{method:"DELETE"}); load();
+}
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

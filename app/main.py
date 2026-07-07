@@ -14,11 +14,13 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
-from app import analyst, collector, exchange_client, settings, strategies, trader
+from app import (adventure_engine, adventures, analyst, brokers, collector,
+                 exchange_client, learning, ml, settings, strategies, trader)
 from app.ai import ai_available, ask, lang_instruction
 from app.catalog import CATALOG_BY_ID, as_dicts as catalog_dicts
 from app.config import INITIAL_BALANCE
 from app.database import get_conn, init_db
+from app.llm import providers_info, verify as llm_verify
 from app.state import controller
 
 logging.basicConfig(level=logging.INFO,
@@ -31,9 +33,13 @@ WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 async def lifespan(app: FastAPI):
     init_db()
     controller.load()
+    adventures.book.load()
     threading.Thread(target=collector.run, daemon=True, name="collector").start()
     threading.Thread(target=trader.run, daemon=True, name="trader").start()
     threading.Thread(target=analyst.run, daemon=True, name="analyst").start()
+    threading.Thread(target=adventure_engine.trader_run, daemon=True, name="adv-trader").start()
+    threading.Thread(target=adventure_engine.analyst_run, daemon=True, name="adv-analyst").start()
+    threading.Thread(target=ml.run, daemon=True, name="ml").start()
     logging.getLogger("app").info("threads démarrés")
     yield
 
@@ -42,6 +48,12 @@ app = FastAPI(title="PiTradeLab", lifespan=lifespan)
 
 
 # ----------------------------- Helpers -----------------------------
+
+def _dump(model) -> dict:
+    """Sérialise un modèle Pydantic — compatible v2 (model_dump) ET v1 (dict).
+    Le Pi Zero tourne en pydantic v1 (pas de pydantic-core Rust)."""
+    return model.model_dump() if hasattr(model, "model_dump") else model.dict()
+
 
 def _instruments():
     return settings.get_instruments()
@@ -166,9 +178,13 @@ class SettingsIn(BaseModel):
     buy_threshold: float = None
     sell_threshold: float = None
     ai_weight: float = None
+    ml_weight: float = None
     ai_interval: int = None
+    ai_provider: str = None
     gemini_api_key: str = None
     gemini_model: str = None
+    mistral_api_key: str = None
+    mistral_model: str = None
     exchange: str = None
     exchange_api_key: str = None
     exchange_secret: str = None
@@ -182,6 +198,39 @@ class ExTest(BaseModel):
     secret: str = None
 
 
+class AdventureIn(BaseModel):
+    name: str = None
+    enabled: bool = None
+    broker: str = None
+    max_capital: float = None
+    instruments: list = None
+    strategy: str = None
+    buy_threshold: float = None
+    sell_threshold: float = None
+    ai_weight: float = None
+    ml_weight: float = None
+    ai_provider: str = None
+    ai_api_key: str = None
+    ai_model: str = None
+    ai_prompt: str = None
+    broker_key: str = None
+    broker_secret: str = None
+    broker_account: str = None
+
+
+class AiTest(BaseModel):
+    provider: str = "gemini"
+    api_key: str = None
+    model: str = None
+
+
+class BrokerTest(BaseModel):
+    broker: str = "sim"
+    broker_key: str = None
+    broker_secret: str = None
+    broker_account: str = None
+
+
 # ----------------------------- Pages -----------------------------
 
 @app.get("/", response_class=HTMLResponse)
@@ -192,6 +241,16 @@ def dashboard():
 @app.get("/config", response_class=HTMLResponse)
 def config_page():
     return (WEB_DIR / "config.html").read_text(encoding="utf-8")
+
+
+@app.get("/adventures", response_class=HTMLResponse)
+def adventures_page():
+    return (WEB_DIR / "adventures.html").read_text(encoding="utf-8")
+
+
+@app.get("/learning", response_class=HTMLResponse)
+def learning_page():
+    return (WEB_DIR / "learning.html").read_text(encoding="utf-8")
 
 
 @app.get("/i18n.js")
@@ -315,18 +374,20 @@ def get_settings():
     return {
         "language": s["language"], "strategy": s["strategy"],
         "buy_threshold": s["buy_threshold"], "sell_threshold": s["sell_threshold"],
-        "ai_weight": s["ai_weight"], "ai_interval": s["ai_interval"],
-        "gemini_model": s["gemini_model"],
-        "gemini_key_set": bool(s["gemini_api_key"]),
+        "ai_weight": s["ai_weight"], "ml_weight": s["ml_weight"], "ai_interval": s["ai_interval"],
+        "ai_provider": s["ai_provider"],
+        "gemini_model": s["gemini_model"], "gemini_key_set": bool(s["gemini_api_key"]),
+        "mistral_model": s["mistral_model"], "mistral_key_set": bool(s["mistral_api_key"]),
         "exchange": s["exchange"], "exchange_keys_set": bool(s["exchange_api_key"] and s["exchange_secret"]),
         "trading_mode": s["trading_mode"], "instruments": s["instruments"],
         "strategies": strategies.list_strategies(), "languages": ["fr", "en", "es"],
+        "ai_providers": providers_info(),
     }
 
 
 @app.post("/api/settings")
 def post_settings(inp: SettingsIn):
-    changes = {k: v for k, v in inp.model_dump().items() if v is not None}
+    changes = {k: v for k, v in _dump(inp).items() if v is not None}
     settings.update(changes)
     controller.sync_instruments()
     return {"ok": True}
@@ -338,6 +399,109 @@ def exchange_test(inp: ExTest):
     key = inp.api_key or settings.get("exchange_api_key")
     sec = inp.secret or settings.get("exchange_secret")
     return exchange_client.test_connection(ex, key, sec)
+
+
+# ----------------------------- API aventures -----------------------------
+
+def _adventure_overview(adv: dict) -> dict:
+    insts = adventures.instruments_of(adv)
+    legs, total = [], 0.0
+    for inst in insts:
+        snap = adventures.book.snapshot(adv["id"], inst.id)
+        price = _last_price(inst.id)
+        p = snap["portfolio"]
+        value = p["balance"] + (p["position"] * price if price else 0.0)
+        total += value
+        legs.append({"id": inst.id, "name": inst.name, "asset_class": inst.asset_class,
+                     "quote": inst.quote, "price": price, "value": value,
+                     "balance": p["balance"], "position": p["position"],
+                     "ai": {"sentiment": (snap["ai"] or {}).get("sentiment"),
+                            "score": (snap["ai"] or {}).get("score")}})
+    initial = adv.get("max_capital", 0.0)
+    pnl = (total / initial - 1.0) * 100.0 if initial else 0.0
+    pub = adventures.public(adv)
+    pub.update({"total": total, "initial": initial, "profit": total - initial, "pnl": pnl, "legs": legs})
+    real = adventures.real_account(adv)  # None si simulation, sinon état réel du compte courtier
+    if real is not None:
+        pub["real"] = real
+    return pub
+
+
+@app.get("/api/adventures")
+def list_adventures():
+    return {"adventures": [_adventure_overview(a) for a in adventures.list_raw()],
+            "brokers": adventures.BROKERS, "providers": providers_info(),
+            "strategies": strategies.list_strategies(), "catalog": catalog_dicts(),
+            "language": settings.get("language")}
+
+
+@app.post("/api/adventures")
+def create_adventure(inp: AdventureIn):
+    changes = {k: v for k, v in _dump(inp).items() if v is not None}
+    adv = adventures.create(changes)
+    adventures.book.load()
+    return {"ok": True, "adventure": adv}
+
+
+@app.post("/api/adventures/{adv_id}")
+def update_adventure(adv_id: str, inp: AdventureIn):
+    changes = {k: v for k, v in _dump(inp).items() if v is not None}
+    adv = adventures.update(adv_id, changes)
+    if not adv:
+        return {"ok": False, "error": "Aventure introuvable."}
+    adventures.book.load()
+    return {"ok": True, "adventure": adv}
+
+
+@app.delete("/api/adventures/{adv_id}")
+def delete_adventure(adv_id: str):
+    return {"ok": adventures.delete(adv_id)}
+
+
+@app.post("/api/adventures/{adv_id}/test-broker")
+def test_broker(adv_id: str):
+    adv = adventures.get(adv_id)
+    if not adv:
+        return {"ok": False, "error": "Aventure introuvable."}
+    return brokers.test_connection(adv)
+
+
+@app.post("/api/ai/test")
+def test_ai(inp: AiTest):
+    return llm_verify(inp.provider, inp.api_key, inp.model)
+
+
+@app.post("/api/broker/test")
+def test_broker_creds(inp: BrokerTest):
+    """Teste des identifiants courtier saisis (avant enregistrement)."""
+    adv = {"broker": inp.broker, "broker_key": inp.broker_key or "",
+           "broker_secret": inp.broker_secret or "", "broker_account": inp.broker_account or ""}
+    return brokers.test_connection(adv)
+
+
+# ----------------------------- API apprentissage / ML -----------------------------
+
+@app.get("/api/learning")
+def learning_summary():
+    return learning.summary()
+
+
+@app.get("/api/ml/status")
+def ml_status():
+    return ml.get_status()
+
+
+@app.post("/api/ml/train")
+def ml_train(instrument: str = None):
+    if not ml.available():
+        return {"ok": False, "error": ml.get_status().get("error") or "ML indisponible."}
+    if instrument:
+        inst = _resolve(instrument)
+        threading.Thread(target=ml.train_instrument, args=(instrument, inst.name if inst else instrument),
+                         daemon=True, name="ml-train-one").start()
+    else:
+        threading.Thread(target=ml.train_all, daemon=True, name="ml-train-all").start()
+    return {"ok": True, "message": "Entraînement lancé."}
 
 
 @app.get("/health")
